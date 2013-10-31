@@ -124,11 +124,15 @@ sub prepare {
 #1. Create blank sth
     my ($outer, $sth) = DBI::_new_sth($dbh, { Statement   => $sStmt, });
     return $sth unless($sth);
+
+#    $sth->{neo_query_obj} = REST::Neo4p::Query->new($sStmt);
+
 # cypher query parameters are given as tokens surrounded by curly braces:
 # crude count:
     my @parms = $sStmt =~ /\{([^}]*)\}/g;
     $sth->STORE('NUM_OF_PARAMS', scalar @parms);
-    $sth->{neo_params} = \@parms;
+    $sth->{neo_param_names} = \@parms;
+    $sth->{neo_params} = [];
     return $outer;
 }
 
@@ -237,8 +241,8 @@ sub FETCH ($$) {
     my ($dbh, $sAttr) = @_;
 # 1. AutoCommit
     return $dbh->{$sAttr} if ($sAttr eq 'AutoCommit');
-# 2. lower cased = Driver private attributes
-    return $dbh->{$sAttr} if ($sAttr eq (lc $sAttr));
+# private attrs have prefix neo_
+    return $dbh->{$sAttr} if ($sAttr =~ /^neo_/);
 # 3. pass up to DBI to handle
     return $dbh->SUPER::FETCH($sAttr);
 }
@@ -258,13 +262,13 @@ sub STORE ($$$) {
         }
         return 1;
     }
-#2. Driver private attributes are lower cased
-    elsif ($sAttr eq (lc $sAttr)) {
+# private attrs have prefix neo_
+    elsif ($sAttr =~ /^neo_/) {
         $dbh->{$sAttr} = $sValue;
         return 1;
     }
 #3. pass up to DBI to handle
-    return $dbh->SUPER::STORE($sAttr, $sValue);
+    return $dbh->SUPER::STORE($sAttr => $sValue);
 }
 
 sub DESTROY($) {
@@ -280,35 +284,46 @@ sub bind_param ($$$;$) {
     my($sth, $param, $value, $attribs) = @_;
     return $sth->DBI::set_err(2, "Can't bind_param $param, too big")
         if ($param >= $sth->FETCH('NUM_OF_PARAMS'));
-    $sth->{tmpl_params__}->[$param] = $value;  #<<Change (tmpl_)
+    $sth->{neo_params}->[$param] = $value;
     return 1;
 }
 
 #>>>>> execute (DBD::Template::st) --------------------------------------------------
 sub execute($@) {
-    my ($sth, @aRest) = @_;
-#1. Set Parameters
-#1.1 Get Parameters
-    my ($raParams, @aRec);
-    $raParams = (@aRest)? [@aRest] : $sth->{tmpl_params__};  #<<Change (tmpl_)
-#1.2 Check Param count
-    my $iParams = $sth->FETCH('NUM_OF_PARAMS');
-    if ($iParams && scalar(@$raParams) != $iParams) { #CHECK FOR RIGHT # PARAMS.
-        return $sth->DBI::set_err((scalar(@$raParams)-$iParams),
-                "..execute: Wrong number of bind variables (".
-                (scalar(@$raParams)-$iParams)." too many!)");
-    }
+  my ($sth, @bind_values) = @_;
+
+  $sth->finish if $sth->{Active}; # DBI::DBD example, follow up...
+
+  my $params = @bind_values ? \@bind_values : $sth->{neo_params};
+  unless (@$params == $sth->FETCH('NUM_OF_PARAMS')) {
+    return $sth->set_err($DBI::STDERR, "Wrong number of parameters");
+  }
 #2. Execute
-    my($oResult, $iNumFld, $sErr) =
-        &{$sth->{Database}->{tmpl_func_}->{execute}}($sth, $raParams);
-    if ($sErr) { return $sth->DBI::set_err( 1, $@); }
+  # by this time, I know all my parameters
+  # so create the Query obj here
+  my %params;
+  @params{@{$sth->{neo_param_names}}} = @{$sth->{neo_params}};
+  $sth->{neo_query_obj} = REST::Neo4p::Query->new(
+    $sth->{Statement}, \%params
+   );
+
+  my $numrows = $sth->{neo_query_obj}->execute;
+  if ($sth->{neo_query_obj}->err) {
+    return $sth->set_err($DBI::stderr,$sth->{neo_query_obj}->errstr);
+  }
+#    my($oResult, $iNumFld, $sErr) =
+#        &{$sth->{Database}->{tmpl_func_}->{execute}}($sth, $raParams);
+
 #3. Set NUM_OF_FIELDS
     if ($iNumFld  &&  !$sth->FETCH('NUM_OF_FIELDS')) {
         $sth->STORE('NUM_OF_FIELDS', $iNumFld);
     }
-#4. AutoCommit
-    $sth->{Database}->commit if($sth->{Database}->FETCH('AutoCommit'));
-    return $oResult;
+
+#4. AutoCommit - handle this later
+#    $sth->{Database}->commit if($sth->{Database}->FETCH('AutoCommit'));
+  $sth->{neo_rows} = $numrows;
+  $sth->{Active} = 1;
+  return $numrows || '0E0';
 }
 #>>>>> fetch (DBD::Template::st) ----------------------------------------------------
 sub fetch ($) {
