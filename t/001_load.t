@@ -14,6 +14,8 @@ ok $dbh = DBI->connect('dbi:Neo4p:db=localhost:7474',
 $dbh->disconnect;
 ok $dbh = DBI->connect('dbi:Neo4p:host=localhost;port=7474',
 		      {RaiseError => 1}), 'create Neo4p dbh with host, port';
+ok $dbh->ping, 'ping';
 $dbh->disconnect;
+
 
 done_testing();

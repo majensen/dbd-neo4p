@@ -10,6 +10,8 @@ our $VERSION = '0.001';
 our $err = 0;               # holds error code   for DBI::err
 our $errstr =  '';          # holds error string for DBI::errstr
 our $drh = undef;           # holds driver handle once initialised
+our $prefix = 'neo_';
+
 
 #>>>>> driver (DBD::Template) >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
@@ -48,21 +50,19 @@ sub connect($$;$$$) {
         CURRENT_USER => $sUsr,
     });
 
-    my $prefix = 'neo_';
-
 #2. Parse extra strings in DSN(key1=val1;key2=val2;...)
     foreach my $sItem (split(/;/, $sDbName)) {
       my ($key, $value) = $sItem =~ /(.*?)=(.*)/;
       return $drh->set_err($DBI::stderr, "Can't parse DSN part '$sItem'")
             unless defined $value;
-      $key = $prefix.$key unless $key =~ /^$prefix/;
+      $key = $prefix.$key unless $key =~ /^${prefix}_/;
       $dbh->STORE($key, $value);
     }
 
-    my $db = delete $rhAttr->{neo_database} || delete $rhAttr->{neo_db};
-    my $host = delete $rhAttr->{neo_host} || 'localhost';
-    my $port = delete $rhAttr->{neo_port} || 7474;
-    my $protocol = delete $rhAttr->{neo_protocol} || 'http';
+    my $db = delete $rhAttr->{"${prefix}_database"} || delete $rhAttr->{"${prefix}_db"};
+    my $host = delete $rhAttr->{"${prefix}_host"} || 'localhost';
+    my $port = delete $rhAttr->{"${prefix}_port"} || 7474;
+    my $protocol = delete $rhAttr->{"${prefix}_protocol"} || 'http';
     # use db=<protocol>://<host>:<port> or host=<host>;port=<port>
     # db attribute trumps
     if ($db) {
@@ -88,19 +88,18 @@ sub connect($$;$$$) {
     }
     $dbh->STORE(Active => 1);
     $dbh->STORE(AutoCommit => 1);
-    $dbh->{neo_agent} = $REST::Neo4p::AGENT;
+    $dbh->{"${prefix}_agent"} = $REST::Neo4p::AGENT;
 
     return $outer;
 }
 
-#>>>>> data_sources (DBD::Template::dr) >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
 # FIXME: data_source not yet supported
 sub data_sources ($;$) {
     my($drh, $rhAttr) = @_;
     return;
 }
 
-#>>>>> disconnect_all (DBD::Template::dr) >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 sub disconnect_all($) { }
 
 package DBD::Neo4p::db;
@@ -116,8 +115,8 @@ sub prepare {
 # crude count:
     my @parms = $sStmt =~ /\{([^}]*)\}/g;
     $sth->STORE('NUM_OF_PARAMS', scalar @parms);
-    $sth->{neo_param_names} = \@parms;
-    $sth->{neo_params} = [];
+    $sth->{"${prefix}_param_names"} = \@parms;
+    $sth->{"${prefix}_params"} = [];
     return $outer;
 }
 
@@ -143,6 +142,14 @@ sub rollback ($) {
       warn("Transactions not yet supported by REST::Neo4p (rollback)") if $dbh->FETCH('Warn');
       return;
     }
+}
+
+sub ping {
+  my $dbh = shift;
+  my $sth = $dbh->prepare('MATCH a RETURN str(1) LIMIT 1') or return 0;
+  $sth->execute or return 0;
+  $sth->finish;
+  return 1;
 }
 
 # neo4j metadata -- needs thinking
@@ -191,7 +198,7 @@ sub FETCH ($$) {
 # 1. AutoCommit
     return $dbh->{$sAttr} if ($sAttr eq 'AutoCommit');
 # private attrs have prefix neo_
-    return $dbh->{$sAttr} if ($sAttr =~ /^neo_/);
+    return $dbh->{$sAttr} if ($sAttr =~ /^${prefix}_/);
 # 3. pass up to DBI to handle
     return $dbh->SUPER::FETCH($sAttr);
 }
@@ -212,7 +219,7 @@ sub STORE ($$$) {
         return 1;
     }
 # private attrs have prefix neo_
-    elsif ($sAttr =~ /^neo_/) {
+    elsif ($sAttr =~ /^${prefix}_/) {
         $dbh->{$sAttr} = $sValue;
         return 1;
     }
@@ -233,7 +240,7 @@ sub bind_param ($$$;$) {
     my($sth, $param, $value, $attribs) = @_;
     return $sth->DBI::set_err(2, "Can't bind_param $param, too big")
         if ($param >= $sth->FETCH('NUM_OF_PARAMS'));
-    $sth->{neo_params}->[$param] = $value;
+    $sth->{"${prefix}_params"}->[$param] = $value;
     return 1;
 }
 
@@ -243,7 +250,7 @@ sub execute($@) {
 
   $sth->finish if $sth->{Active}; # DBI::DBD example, follow up...
 
-  my $params = @bind_values ? \@bind_values : $sth->{neo_params};
+  my $params = @bind_values ? \@bind_values : $sth->{"${prefix}_params"};
   unless (@$params == $sth->FETCH('NUM_OF_PARAMS')) {
     return $sth->set_err($DBI::stderr, "Wrong number of parameters");
   }
@@ -251,34 +258,30 @@ sub execute($@) {
   # by this time, I know all my parameters
   # so create the Query obj here
   my %params;
-  @params{@{$sth->{neo_param_names}}} = @{$sth->{neo_params}};
-  $sth->{neo_query_obj} = REST::Neo4p::Query->new(
+  @params{@{$sth->{"${prefix}_param_names"}}} = @{$sth->{"${prefix}_params"}};
+  my $q = $sth->{"${prefix}_query_obj"} = REST::Neo4p::Query->new(
     $sth->{Statement}, \%params
    );
 
-  my $numrows = $sth->{neo_query_obj}->execute;
-  if ($sth->{neo_query_obj}->err) {
-    return $sth->set_err($DBI::stderr,$sth->{neo_query_obj}->errstr);
+  my $numrows = $q->execute;
+  if ($q->err) {
+    return $sth->set_err($DBI::stderr,$q->errstr);
   }
-
-  $sth->STORE(NUM_OF_FIELDS => $sth->{neo_query_obj}{NUM_OF_FIELDS});
-  $sth->STORE(NAME =>  $sth->{neo_query_obj}{NAME});
-
 
 #4. AutoCommit - handle this later
 #    $sth->{Database}->commit if($sth->{Database}->FETCH('AutoCommit'));
-  $sth->{neo_rows} = $numrows;
+  $sth->{"${prefix}_rows"} = $numrows;
   $sth->{Active} = 1;
   return $numrows || '0E0';
 }
 #>>>>> fetch (DBD::Template::st) ----------------------------------------------------
 sub fetch ($) {
     my ($sth) = @_;
-    my $qry_obj =$sth->{neo_query_obj};
-    unless ($qry_obj) {
+    my $q =$sth->{"${prefix}_query_obj"};
+    unless ($q) {
       return $sth->set_err($DBI::stderr, "Query not yet executed");
     }
-    my $row = $qry_obj->fetch;
+    my $row = $q->fetch;
 #    return $sth->DBI::set_err( 1,
 #        "Attempt to fetch row from a Non-SELECT Statement") if ($bNotSel);
 
@@ -297,7 +300,7 @@ sub rows ($) {
 
 sub finish ($) {
     my ($sth) = @_;
-    $sth->{neo_query_obj} = undef;
+    $sth->{"${prefix}_query_obj"} = undef;
     $sth->STORE(Active => 0);
     $sth->SUPER::finish();
     return 1;
@@ -306,9 +309,13 @@ sub finish ($) {
 
 sub FETCH ($$) {
     my ($sth, $attrib) = @_;
+    my $q =$sth->{"${prefix}_query_object"};
 #NAME
-    return &{$sth->{Database}->{tmpl_func_}->{name}}($sth) #<<Change (tmpl_)
-                if ($attrib eq 'NAME');
+    return ($q && $q->{NAME})
+      if ($attrib eq 'NAME');
+#NUM_OF_FIELDS
+    return ($q && $q->{NUM_OF_FIELDS})
+      if ($attrib eq 'NUM_OF_FIELDS');
 #TYPE... Statement attribute
     return [(DBI::SQL_VARCHAR()) x $sth->FETCH('NUM_OF_FIELDS')]
         if($attrib eq 'TYPE');
@@ -321,14 +328,14 @@ sub FETCH ($$) {
     return undef if($attrib eq 'RowInCache');
     return undef if($attrib eq 'CursorName');
 # Private driver attributes have neo_ prefix
-    return $sth->{$attrib} if ($attrib =~ /^neo_/);
+    return $sth->{$attrib} if ($attrib =~ /^${prefix}_/);
     return $sth->SUPER::FETCH($attrib);
 }
 
 sub STORE ($$$) {
     my ($sth, $attrib, $value) = @_;
 #1. Private driver attributes have neo_ prefix
-    if ($attrib =~ /^neo_/) {
+    if ($attrib =~ /^${prefix}_/) {
         $sth->{$attrib} = $value;
         return 1;
     }
