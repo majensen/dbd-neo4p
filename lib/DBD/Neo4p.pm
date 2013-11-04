@@ -3,7 +3,6 @@ package DBD::Neo4p;
 use strict;
 use warnings;
 use REST::Neo4p;
-use Try::Tiny;
 require DBI;
 
 our $VERSION = '0.001';
@@ -13,7 +12,6 @@ our $drh = undef;           # holds driver handle once initialised
 our $prefix = 'neo_';
 
 
-#>>>>> driver (DBD::Template) >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 sub driver($$){
 #0. already created - return it
@@ -63,6 +61,8 @@ sub connect($$;$$$) {
     my $host = delete $rhAttr->{"${prefix}_host"} || 'localhost';
     my $port = delete $rhAttr->{"${prefix}_port"} || 7474;
     my $protocol = delete $rhAttr->{"${prefix}_protocol"} || 'http';
+    my $user = delete $rhAttr->{"${prefix}_user"};
+    my $pass = delete $rhAttr->{"${prefix}_pass"} || delete $rhAttr->{"${prefix}_password"};
     # use db=<protocol>://<host>:<port> or host=<host>;port=<port>
     # db attribute trumps
     if ($db) {
@@ -74,13 +74,16 @@ sub connect($$;$$$) {
     # real connect...
 
     $db = "$protocol://$host:$port";
+    if ($user || $pass) {
+      REST::Neo4p->agent->credentials($db,"", $user, $pass);
+    }
     eval {
-      REST::Neo4p->connect($db);
+      REST::Neo4p->connect($db) or die "Can't connect";
     };
     if (my $e = Exception::Class->caught()) {
-      1;
-      ref() ? $drh->set_err($DBI::stderr, "Can't connect to $sDbName: ".ref()." - ".$_->message) :
-	$drh->set_err($DBI::stderr, $_);
+      return
+	ref $e ? $drh->set_err($DBI::stderr, "Can't connect to $sDbName: ".ref($e)." - ".$e->message) :
+	  $drh->set_err($DBI::stderr, ref $e ? $e->code : 1);
     };
 
     foreach my $sKey (keys %$rhAttr) {
@@ -274,7 +277,7 @@ sub execute($@) {
   $sth->{Active} = 1;
   return $numrows || '0E0';
 }
-#>>>>> fetch (DBD::Template::st) ----------------------------------------------------
+
 sub fetch ($) {
     my ($sth) = @_;
     my $q =$sth->{"${prefix}_query_obj"};
@@ -292,6 +295,7 @@ sub fetch ($) {
     $sth->_set_fbav($row);
 }
 *fetchrow_arrayref = \&fetch;
+
 #>>>>> rows (DBD::Template::st) -----------------------------------------------------
 sub rows ($) {
     my($sth) = @_;
@@ -361,13 +365,29 @@ __END__
 
 =head1 NAME
 
-DBD::Neo4p -  A DBI driver for REST::Neo4p
+DBD::Neo4p - A DBI driver for Neo4j via REST::Neo4p
 
 =head1 SYNOPSIS
 
-    use DBI;
+ use DBI;
+ my $dbh = DBI->connect("dbi:Neo4p:http://127.0.0.1:7474;user=foo;pass=bar");
+ my $q =<<CYPHER;
+ START x = node:node_auto_index(name= { startName })
+ MATCH path =(x-[r]-friend)
+ WHERE friend.name = { name }
+ RETURN TYPE(r)
+ CYPHER
+ my $sth = $dbh->prepare($q);
+ $sth->execute("I", "you"); # startName => 'I', name => 'you'
+ while (my $row = $sth->fetch) {
+   print "I am a ".$row->[0]." friend of yours.\n";
+ }
 
 =head1 DESCRIPTION
+
+L<DBD::Neo4p> is a L<DBI>-compliant wrapper for L<REST::Neo4p::Query>
+that allows for the execution of Neo4j Cypher language queries against
+a L<Neo4j|www.neo4j.org> graph database.
 
 =head1 Functions
 
@@ -410,7 +430,7 @@ DBD::Neo4p -  A DBI driver for REST::Neo4p
 =over 4
 
 =item execute   I<(required)>
-
+n
 =item fetch I<(required)>
 
 =item rows  I<(required)>
