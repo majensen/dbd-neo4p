@@ -36,9 +36,8 @@ sub new {
   }
   my $nix = REST::Neo4p->get_index_by_name("N$uuid", 'node') ||
     REST::Neo4p::Index->new( node => "N$uuid" );
-  my $rix = REST::Neo4p->get_index_by_name("R$uuid", 'relationship') ||
+  my $rix = REST::Neo4p->get_index_by_name("R$uuid", 'node') ||
     REST::Neo4p::Index->new( relationship => "R$uuid" );
-
   bless {
     nix => $nix,
     rix => $rix,
@@ -60,9 +59,10 @@ sub create_sample {
   }
   foreach (@relns) {
     my ($n1, $n2, $type) = @$_;
-    $self->rix->create_unique(hash => "$n1$n2$type",
-			     $node_objs[$n1] => $node_objs[$n2],
-			     $type, {uuid => $uuid});
+#    my $r = $node_objs[$n1]->relate_to( $node_objs[$n2], $type, {hash => "$n1$n2$type"});
+#    $self->rix->add_entry($r, hash => "$n1$n2$type");
+    $self->rix->create_unique( hash => "$n1$n2$type",
+			       $node_objs[$n1] => $node_objs[$n2], $type);
   }
   return 1;
 }
@@ -70,10 +70,9 @@ sub create_sample {
 sub delete_sample {
   my $self = shift;
   die "No connection"  unless $REST::Neo4p::AGENT;
-  my @r = $self->rix->find_entries(uuid => $uuid);
-  $_->remove for @r;
-  my @n = $self->nix->find_entries(uuid => $uuid);
-  $_->remove for @n;
+  my @r = $self->rix->find_entries("hash:*");
+  my @n = $self->nix->find_entries("name:*");
+  $_->remove for @r, @n;
   $self->nix->remove;
   $self->rix->remove;
   return 1;

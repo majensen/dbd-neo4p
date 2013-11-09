@@ -3,7 +3,7 @@ use lib 'lib';
 use lib 't/lib';
 use REST::Neo4p;
 use Neo4p::Test;
-
+$IG{__DIE__} = sub { $DB::single=1; $_[0] !~ /malformed j/i && print $_[0] };
 my $build;
 eval {
   $build = Module::Build->current;
