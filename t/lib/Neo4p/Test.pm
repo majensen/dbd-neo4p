@@ -24,9 +24,10 @@ my @relns = (
 
 sub new {
   my $class = shift;
-  my ($db) = @_;
+  my ($db,$user,$pass) = @_;
   unless ($REST::Neo4p::AGENT) {
     eval {
+      REST::Ne4op->agent->credentials($db,'',$user,$pass) if defined $user;
       REST::Neo4p->connect($db);
     };
     if (my $e = Exception::Class->caught) {
@@ -47,6 +48,7 @@ sub new {
 sub nix {shift->{nix}}
 sub rix {shift->{rix}}
 sub uuid {shift->{uuid}}
+sub agent {$REST::Neo4p::AGENT}
 
 sub create_sample {
   my $self = shift;
@@ -76,5 +78,12 @@ sub delete_sample {
   $self->nix->remove;
   $self->rix->remove;
   return 1;
+}
+
+sub DESTROY {
+  my $self = shift;
+  eval {
+    $self->delete_sample;
+  };
 }
 1;

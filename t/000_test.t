@@ -3,15 +3,18 @@ use lib 'lib';
 use lib 't/lib';
 use REST::Neo4p;
 use Neo4p::Test;
-$IG{__DIE__} = sub { $DB::single=1; $_[0] !~ /malformed j/i && print $_[0] };
+#$SIG{__DIE__} = sub { $DB::single=1; $_[0] !~ /malformed j/i && print $_[0] };
 my $build;
+my ($user, $pass);
 eval {
   $build = Module::Build->current;
+  $user = $build->notes('user');
+  $pass = $build->notes('pass');
 };
 my $TEST_SERVER = $build ? $build->notes('test_server') : 'http://127.0.0.1:7474';
-my $num_live_tests = 1;
+my $num_live_tests = 11;
 
-ok $t = Neo4p::Test->new($TEST_SERVER), 'new test object';
+ok $t = Neo4p::Test->new($TEST_SERVER, $user, $pass), 'new test object';
 isa_ok ($t, 'Neo4p::Test');
 
 SKIP : {
@@ -29,6 +32,5 @@ SKIP : {
   $q->execute;
   ok !$q->err, 'query executed';
   ok !$q->fetch, 'nodes removed';
-  
 }
 done_testing;

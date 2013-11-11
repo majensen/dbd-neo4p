@@ -10,13 +10,16 @@ my $build = Module::Build->new(
     'Module::Build' => 0
    },
   'build_requires' => {
-    'REST::Neo4p' => '0.21',
+    'REST::Neo4p' => '0.212',
     'Test::More' => 0,
     'Test::Exception' => 0
    },
   'requires' => {
-    'REST::Neo4p' => '0.21'
-   }
+    'REST::Neo4p' => '0.212'
+   },
+  perl => 5.010
 );
 $build->notes( test_server => $build->prompt("Test server?", "http://127.0.0.1:7474"));
+$build->notes( user => $build->prompt("Username?", ""))
+$build->notes( pass => $build->prompt("Pass?",""));
 $build->create_build_script;
