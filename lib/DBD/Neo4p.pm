@@ -1,9 +1,12 @@
-use v5.10.0;
+#$Id$
+use v5.10;
 package DBD::Neo4p;
 use strict;
 use warnings;
-use REST::Neo4p 0.2120;
+use REST::Neo4p 0.2220;
+use JSON;
 require DBI;
+no warnings qw/once/;
 
 our $VERSION = '0.0001';
 our $err = 0;               # holds error code   for DBI::err
@@ -23,11 +26,12 @@ sub driver($$){
     DBD::Neo4p::db->install_method('x_neo4j_version');
 
     $drh = DBI::_new_drh($sClass,  
-        {   Name        => $sClass,
+        {   
+            Name        => $sClass,
             Version     => $VERSION,
             Err         => \$DBD::Neo4p::err,
             Errstr      => \$DBD::Neo4p::errstr,
-#            State       => \$DBD::Neo4p::sqlstate,
+            State       => \$DBD::Neo4p::sqlstate,
             Attribution => 'DBD::Neo4p by Mark A. Jensen'
         }
     );
@@ -46,8 +50,10 @@ sub connect($$;$$$) {
         USER         => $sUsr,
         CURRENT_USER => $sUsr,
     });
+    local $REST::Neo4p::HANDLE;
+    $dbh->STORE("${prefix}_Handle", REST::Neo4p->create_and_set_handle);
     # default attributes
-    $dbh->STORE('neo_ResponseAsObjects',0);
+    $dbh->STORE("${prefix}_ResponseAsObjects",0);
 
 #2. Parse extra strings in DSN(key1=val1;key2=val2;...)
     foreach my $sItem (split(/;/, $sDbName)) {
@@ -62,8 +68,8 @@ sub connect($$;$$$) {
     my $host = delete $rhAttr->{"${prefix}_host"} || 'localhost';
     my $port = delete $rhAttr->{"${prefix}_port"} || 7474;
     my $protocol = delete $rhAttr->{"${prefix}_protocol"} || 'http';
-    my $user = delete $rhAttr->{"${prefix}_user"};
-    my $pass = delete $rhAttr->{"${prefix}_pass"} || delete $rhAttr->{"${prefix}_password"};
+    my $user =  delete $rhAttr->{"${prefix}_user"} || $sUsr;
+    my $pass = delete $rhAttr->{"${prefix}_pass"} || delete $rhAttr->{"${prefix}_password"} || $sAuth;
     # use db=<protocol>://<host>:<port> or host=<host>;port=<port>
     # db attribute trumps
     if ($db) {
@@ -89,7 +95,7 @@ sub connect($$;$$$) {
     }
     $dbh->STORE(Active => 1);
     $dbh->STORE(AutoCommit => 1);
-    $dbh->{"${prefix}_agent"} = $REST::Neo4p::AGENT;
+    $dbh->{"${prefix}_agent"} = REST::Neo4p->agent;
 
     return $outer;
 }
@@ -121,6 +127,30 @@ sub prepare {
     return $outer;
 }
 
+sub begin_work {
+  my ($dbh) = @_;
+  local $REST::Neo4p::HANDLE;
+  REST::Neo4p->set_handle($dbh->{"${prefix}_Handle"});
+  unless ($dbh->{AutoCommit}) {
+    $drh->set_err($DBI::stderr, "begin_work not effective, AutoCommit already off");
+    return;
+  }
+  eval {
+    REST::Neo4p->begin_work;
+  };
+  if ( my $e = REST::Neo4p::VersionMismatchException->caught()) {
+    warn("Your neo4j server does not support transactions via REST API") if $dbh->FETCH('Warn');
+    return;
+  }
+  elsif ($e = Exception::Class->caught()) {
+    return
+      ref $e ? $drh->set_err($DBI::stderr, "Can't begin transaction: ".ref($e)." : ".$e->message.' ('.$e->code.')') :
+	$drh->set_err($DBI::stderr, $e);
+  };
+  $dbh->STORE('AutoCommit',0);
+  return 1;
+}
+
 sub commit ($) {
     my($dbh) = @_;
     if ($dbh->FETCH('AutoCommit')) {
@@ -128,8 +158,21 @@ sub commit ($) {
       return;
     }
     else {
-      warn("Transactions not yet supported by REST::Neo4p (commit)") if $dbh->FETCH('Warn');
-      return;
+      local $REST::Neo4p::HANDLE;
+      REST::Neo4p->set_handle($dbh->{"${prefix}_Handle"});
+      eval {
+	REST::Neo4p->commit;
+      };
+      if ( my $e = REST::Neo4p::VersionMismatchException->caught()) {
+	warn("Your neo4j server does not support REST transactions") if $dbh->FETCH('Warn');
+	return;
+      }
+      elsif ($e = Exception::Class->caught()) {
+	return
+	  ref $e ? $drh->set_err($DBI::stderr, "Can't commit: ".ref($e)." : ".$e->message.' ('.$e->code.')') :
+	    $drh->set_err($DBI::stderr, $e);
+      };
+      return 1;
     }
 }
 
@@ -140,7 +183,20 @@ sub rollback ($) {
       return;
     }
     else {
-      warn("Transactions not yet supported by REST::Neo4p (rollback)") if $dbh->FETCH('Warn');
+      local $REST::Neo4p::HANDLE;
+      REST::Neo4p->set_handle($dbh->{"${prefix}_Handle"});
+      eval {
+	REST::Neo4p->rollback;
+      };
+      if ( my $e = REST::Neo4p::VersionMismatchException->caught()) {
+	warn("Your neo4j server does not support REST transactions") if $dbh->FETCH('Warn');
+	return;
+      }
+      elsif ($e = Exception::Class->caught()) {
+	return
+	  ref $e ? $drh->set_err($DBI::stderr, "Can't rollback: ".ref($e)." : ".$e->message.' ('.$e->code.')') :
+	    $drh->set_err($DBI::stderr, $e);
+      };
       return;
     }
 }
@@ -161,13 +217,13 @@ sub x_neo4j_version {
   return $dbh->{"${prefix}_agent"}->{_actions}{neo4j_version};
 }
 
-#>>>>> table_info (DBD::Template::db) -----------------------------------------------
+
+# table_info is a nop
+
 sub table_info ($) {
     my($dbh) = @_;
 #-->> Change
-    my ($raTables, $raName) =
-            &{$dbh->{tmpl_func_}->{table_info}}($dbh)
-                        if(defined($dbh->{tmpl_func_}->{table_info}));
+    my ($raTables, $raName) = (undef, undef);
 #<<-- Change
     return undef unless $raTables;
 #2. create DBD::Sponge driver
@@ -196,6 +252,7 @@ sub type_info_all ($) {
 
 sub disconnect ($) {
     my ($dbh) = @_;
+    REST::Neo4p->disconnect_handle($dbh->{"${prefix}_Handle"});
     $dbh->STORE(Active => 0);
     1;
 }
@@ -213,14 +270,13 @@ sub STORE ($$$) {
   my ($dbh, $sAttr, $sValue) = @_;
   given ($sAttr) {
     when ('AutoCommit') {
-      if(defined($dbh->{tmpl_func_}->{rollback})) {
-	$dbh->{$sAttr} = ($sValue)? 1: 0;
-      }
-      else{
-	#Rollback
-	warn("Can't disable AutoCommit with no rollback func", -1)
-	  unless($sValue);
+      local $REST::Neo4p::HANDLE = $dbh->{"${prefix}_Handle"};
+      if (!!$sValue) {
+	REST::Neo4p->_set_autocommit;
 	$dbh->{$sAttr} = 1;
+      }
+      else {
+	$dbh->{$sAttr} = 0 if REST::Neo4p->_clear_autocommit;
       }
       return 1;
     }
@@ -263,20 +319,27 @@ sub execute($@) {
   # Execute
   # by this time, I know all my parameters
   # so create the Query obj here
+  local $REST::Neo4p::HANDLE = $sth->{Database}->{"${prefix}_Handle"};
+
+  # per DBI spec, begin work under the hood if AutoCommit is FALSE:
+  unless ($sth->{Database}->FETCH('AutoCommit')) {
+    unless (REST::Neo4p->_transaction) {
+      REST::Neo4p->begin_work;
+    }
+  }
+
   my %params;
   @params{@{$sth->{"${prefix}_param_names"}}} = @$params;
   my $q = $sth->{"${prefix}_query_obj"} = REST::Neo4p::Query->new(
     $sth->{Statement}, \%params
    );
-  $q->{ResponseAsObjects} = $sth->{Database}->{neo_ResponseAsObjects};
+  $q->{ResponseAsObjects} = $sth->{Database}->{"${prefix}_ResponseAsObjects"};
 
   my $numrows = $q->execute;
   if ($q->err) {
     return $sth->set_err($DBI::stderr,$q->errstr.' ('.$q->err.')');
   }
 
-#4. AutoCommit - handle this later
-#    $sth->{Database}->commit if($sth->{Database}->FETCH('AutoCommit'));
   $sth->{"${prefix}_rows"} = $numrows;
   # don't know why I have to do the following, when the FETCH 
   # method delegates this to the query object and $sth->{NUM_OF_FIELDS}
@@ -316,6 +379,56 @@ sub fetch ($) {
 }
 *fetchrow_arrayref = \&fetch;
 
+# override fetchall_hashref - create a sensible hash key from node, 
+# relationship structures
+sub fetchall_hashref {
+  my ($sth, $key_field) = @_;
+  my @keys;
+  push @keys, ref $key_field ? @{$key_field} : $key_field;
+  my @names = @{$sth->FETCH($sth->{Database}->{FetchHashKeyName})};
+  for my $key (@keys) {
+    my $qkey = quotemeta $key;
+    unless (grep(/^$qkey$/, @names)) {
+      return $sth->set_err($DBI::stderr, "'$key_field' not a column name");
+    }
+
+  }
+  my $rows = $sth->fetchall_arrayref;
+  my $ret = {};
+  return unless $rows;
+  for my $row (@$rows) {
+    my %data;
+    @data{@names} = @$row;
+    my $h = $ret;
+    for my $k (@keys) {
+      my $key_from_data;
+      given (ref $data{$k}) {
+	when (!$_) {
+	  $key_from_data = $data{$k};
+	}
+	when (/REST::Neo4p/) {
+	  $key_from_data = ${$data{$k}}; # id
+	}
+	when (/HASH|ARRAY/) {
+	  $key_from_data = $data{$k}{_node} || $data{$k}{_relationship};
+	  $key_from_data = JSON->new->utf8->encode($data{$k}) unless $key_from_data;
+	}
+	default {
+	  die "whaaa? (fetchall_hashref)";
+	}
+      }
+      $h->{$key_from_data} = {};
+      $h = $h->{$key_from_data};
+    }
+    for my $n (@names) {
+      my $qn = quotemeta $n;
+      next if grep /^$qn$/,@keys;
+      $h->{$n} = $data{$n};
+    }
+  }
+
+  return $ret;
+}
 sub rows ($) {
   my($sth) = @_;
   return $sth->{"${prefix}_rows"};
@@ -336,22 +449,22 @@ sub FETCH ($$) {
     when ('NAME') { return ($q && $q->{NAME}) }
     when ('NUM_OF_FIELDS') { return ($q && $q->{NUM_OF_FIELDS}) }
     when ('TYPE') {
-      return [(DBI::SQL_VARCHAR()) x $sth->FETCH('NUM_OF_FIELDS')]
+      return;
     }
     when ('PRECISION') {
-      return [(-1) x $sth->FETCH('NUM_OF_FIELDS')]
+      return;
     }
     when ('SCALE') {
-      return [(undef) x $sth->FETCH('NUM_OF_FIELDS')]
+      return;
     }
     when ('NULLABLE') {
-      return [(1) x $sth->FETCH('NUM_OF_FIELDS')]
+      return;
     }
     when ('RowInCache') {
-      return
+      return;
     }
     when ('CursorName') {
-      return
+      return;
     }
     # Private driver attributes have neo_ prefix
     when (/^${prefix}_/) {
@@ -433,7 +546,7 @@ a L<Neo4j|www.neo4j.org> graph database.
 
 =head2 Database Level
 
-=over 4
+=over 
 
 =item prepare
 
@@ -491,6 +604,8 @@ as appropriate.  For descriptions of these, see
 L<REST::Neo4p::Node/as_simple()>,
 L<REST::Neo4p::Relationship/as_simple()>, and
 L<REST::Neo4p::Path/as_simple()>.
+
+=item 
 
 =back
 

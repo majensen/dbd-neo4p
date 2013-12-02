@@ -25,7 +25,7 @@ ok my $dbh = DBI->connect($dsn);
 
 SKIP : {
   skip 'no connection to neo4j', $num_live_tests unless $dbh->ping;
-  $t = Neo4p::Test->new();
+  $t = Neo4p::Test->new($TEST_SERVER,$user,$pass);
   ok $t->create_sample, 'create sample graph';
   my $idx = ${$t->nix};
   my $q =<<CYPHER;

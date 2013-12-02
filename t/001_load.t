@@ -26,8 +26,12 @@ SKIP : {
   $dbh->disconnect;
   ok $dbh = DBI->connect("dbi:Neo4p:host=$host;port=$port",
 		       {RaiseError => 1}), 'create Neo4p dbh with host, port';
-
   $dbh->disconnect;
+  TODO : {
+    local $TODO = "Can't get response from the DBI guys";
+    ok $dbh->can('neo_neo4j_version'), "get neo4j server version";
+  }
 }
 
 done_testing();
+
