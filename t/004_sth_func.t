@@ -1,4 +1,4 @@
-use Test::More;
+use Test::More tests => 24;
 use Test::Exception;
 use lib 't/lib';
 use lib '../lib';
@@ -17,7 +17,7 @@ eval {
   $pass = $build->notes('pass');
 };
 my $TEST_SERVER = $build ? $build->notes('test_server') : 'http://127.0.0.1:7474';
-my $num_live_tests = 1;
+my $num_live_tests = 23;
 my $t;
 my $dsn = "dbi:Neo4p:db=$TEST_SERVER";
 $dsn .= ";user=$user;pass=$pass" if defined $user;
@@ -60,9 +60,12 @@ FRIEND => 0, qw/TYPE(R)/ => 1 }, 'NAME_uc_hash';
   ok $rows = $sth->fetchall_hashref('friend'), 'fetchall_hashref';
   is ref $rows, 'HASH', 'is hashref';
   ok $sth->execute, "execute statement (3)";
-  $DB::single=1;
   ok $rows = $sth->fetchall_hashref(['friend','TYPE(r)']);
   is ref $rows, 'HASH', 'is hashref';
+  $dbh->{neo_ResponseAsObjects} = 1;
+  ok $sth->execute, "execute statement (4) - responses as objects";
+  $DB::single=1;
+  ok $rows =  $sth->fetchall_hashref(['friend','TYPE(r)']);
   1;
 }
 

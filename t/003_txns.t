@@ -42,8 +42,7 @@ CYPHER
   like $DBI::errstr, qr/begin_work not effective/, "AutoCommit cleared, begin_work not effective";
   ok my $sth = $dbh->prepare($q), 'prepare query';
   ok $sth->execute, 'execute';
-  $DB::single=1;
-  ok !$sth->fetch, "nothing fetched before commit";
+#  ok !$sth->fetch, "nothing fetched before commit";
   ok $dbh->commit;
   
 }

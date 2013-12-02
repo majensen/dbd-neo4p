@@ -1,4 +1,4 @@
-use Test::More;
+use Test::More tests => 13;
 use lib 'lib';
 use lib 't/lib';
 use REST::Neo4p;
@@ -28,9 +28,10 @@ SKIP : {
   ok $t->delete_sample, 'delete the sample graph';
   ok !REST::Neo4p->get_index_by_name("N".$t->uuid, 'node'), 'node idx is gone';
   ok !REST::Neo4p->get_index_by_name("R".$t->uuid, 'relationship'), 'reln idx is gone';
-  my $q = REST::Neo4p::Query->new("MATCH n WHERE n.uuid! = '".$t->uuid."' RETURN n");
+  my $bang = (REST::Neo4p->_check_version(2,0,0) ? '' : '!');
+  my $q = REST::Neo4p::Query->new("MATCH n WHERE n.uuid${bang} = '".$t->uuid."' RETURN n");
   $q->execute;
   ok !$q->err, 'query executed';
   ok !$q->fetch, 'nodes removed';
 }
-done_testing;
+

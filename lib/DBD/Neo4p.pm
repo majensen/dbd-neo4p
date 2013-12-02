@@ -530,6 +530,8 @@ L<DBD::Neo4p> is a L<DBI>-compliant wrapper for L<REST::Neo4p::Query>
 that allows for the execution of Neo4j Cypher language queries against
 a L<Neo4j|www.neo4j.org> graph database.
 
+L<DBD::Neo4p> requires L<REST::Neo4p> v0.2220 or greater.
+
 =head1 Functions
 
 =head2 Driver Level
@@ -548,11 +550,30 @@ a L<Neo4j|www.neo4j.org> graph database.
 
 =over 
 
-=item prepare
+=item prepare, prepare_cached
+
+ $sth = $dbh->prepare("START n = node(0) RETURN n");
+ $sth = $dbh->prepare("START n = node(0) MATCH n-()->m".
+                      "WHERE m.name = { name } RETURN m");
+
+Prepare a Cypher language statement. In Cypher, parameters are named
+and surrounded by curly brackets.
+
+The driver captures the parameters and treats them as numbered in the
+order they appear in the statement (per L<DBI> spec). An array of
+parameter names in order can be obtained from the statement handle:
+
+ @param_names = @{$sth->{neo_param_names}};
+
+=item begin_work
 
 =item commit
 
 =item rollback
+
+Transaction support requires L<Neo4j|http://neo4j.org> server version
+2.0.0 or greater. The driver will return with error set if your server
+can't handle transactions (per L<DBI> spec).
 
 =item disconnect
 
@@ -562,7 +583,10 @@ a L<Neo4j|www.neo4j.org> graph database.
 
 =item type_info
 
-=item quote
+Not currently implemented. Neo4j is basically typeless, and does not
+have tables. In Neo4j version 2.0 servers, node labels and indexes
+allow a schema-like constraint system (see
+L<http://docs.neo4j.org/chunked/2.0.0-RC1/cypher-schema.html>).
 
 =item x_neo4j_version
 
@@ -578,11 +602,41 @@ Get the neo4j server version.
 
 =item execute
 
+ $sth->execute;
+ $sth->execute($param_value,...);
+
+All L<DBI> C<bind_param> and C<execute> variants are meant to
+work. Please file a bug in L<RT|http://rt.cpan.org/> if there are
+problems.
+
 =item fetch
 
-=item rows
+C<fetch> and C<fetch_rowarray> retrieve the next row from the response.
 
-=item finish
+The fields returned in Cypher query rows can include nodes and
+relationships, as well as scalar values. Nodes and relationships are
+returned as simple Perl structures (hashrefs) by default (see
+L<REST::Neo4p::Node/as_simple()> and
+L<REST::Neo4p::Relationship/as_simple()> for
+format). L<REST::Neo4p::Node> and L<REST::Neo4p::Relationship> objects
+themselves can be retrieved by setting
+
+ $dbh->{neo_ResponseAsObjects} = 1
+
+on the database handle.
+
+=item fetchall_hashref
+
+See L<DBI/fetchall_hashref>. In L<DBD::Neo4p>, C<fetchall_hashref> is
+reimplemented so that the node or relationship IDs become the hash
+keys for key fields:
+
+  $sth = $dbh->prepare("START n = node:nameidx(name = 'Ed')".
+                       "MATCH n-[:friend]-m return m, m.name");
+  $sth->execute;
+  my $hash = $sth->fetchall_hashref('m');
+  my @friend_ids = keys %$hash;
+  say "One friend of Ed's is ".$hash->{$friend_ids[0]}->{'m.name'};
 
 =back
 
@@ -594,7 +648,7 @@ Get the neo4j server version.
 
 =item ResponseAsObjects
 
- $dbh->{ResponseAsObjects}
+ $dbh->{neo_ResponseAsObjects}
 
 If set, columns that are nodes, relationships or paths are returned 
 as L<REST::Neo4p> objects of the appropriate type.
