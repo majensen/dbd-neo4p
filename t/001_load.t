@@ -1,4 +1,4 @@
-use Test::More tests => 5;
+use Test::More tests => 6;
 use Test::Exception;
 use strict;
 use warnings;
@@ -10,7 +10,7 @@ eval {
   $build = Module::Build->current;
 };
 my $TEST_SERVER = $build ? $build->notes('test_server') : 'http://127.0.0.1:7474';
-my $num_live_tests = 3;
+my $num_live_tests = 4;
 
 my $dbh;
 my ($host,$port) = $TEST_SERVER =~ m|.*//([^:]+):([0-9]+)$|;
@@ -32,6 +32,4 @@ SKIP : {
     ok $dbh->can('neo_neo4j_version'), "get neo4j server version";
   }
 }
-
-done_testing();
 
