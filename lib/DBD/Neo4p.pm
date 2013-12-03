@@ -197,7 +197,7 @@ sub rollback ($) {
 	  ref $e ? $drh->set_err($DBI::stderr, "Can't rollback: ".ref($e)." : ".$e->message.' ('.$e->code.')') :
 	    $drh->set_err($DBI::stderr, $e);
       };
-      return;
+      return 1;
     }
 }
 
