@@ -8,27 +8,28 @@ use JSON;
 require DBI;
 no warnings qw/once/;
 
-our $VERSION = '0.0001';
+BEGIN {
+ $DBD::Neo4p::VERSION = '0.0001';
+}
+
 our $err = 0;               # holds error code   for DBI::err
 our $errstr =  '';          # holds error string for DBI::errstr
 our $drh = undef;           # holds driver handle once initialised
 our $prefix = 'neo';
 
 sub driver($$){
-#0. already created - return it
     return $drh if $drh;
-#1. not created(maybe normal case)
     my($sClass, $rhAttr) = @_;
     $sClass .= '::dr';
 
 # install methods if nec.
-#    DBD::Neo4p::db->install_method('drv_example_dbh_method');
+
     DBD::Neo4p::db->install_method('x_neo4j_version');
 
     $drh = DBI::_new_drh($sClass,  
         {   
             Name        => $sClass,
-            Version     => $VERSION,
+            Version     => $DBD::Neo4p::VERSION,
             Err         => \$DBD::Neo4p::err,
             Errstr      => \$DBD::Neo4p::errstr,
             State       => \$DBD::Neo4p::sqlstate,
@@ -100,8 +101,6 @@ sub connect($$;$$$) {
     return $outer;
 }
 
-
-# FIXME: data_source not yet supported
 sub data_sources ($;$) {
     my($drh, $rhAttr) = @_;
     return;
