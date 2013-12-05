@@ -18,13 +18,14 @@ eval {
 };
 my $TEST_SERVER = $build ? $build->notes('test_server') : 'http://127.0.0.1:7474';
 my $num_live_tests = 1;
-my $t;
+my ($t, $dbh);
 my $dsn = "dbi:Neo4p:db=$TEST_SERVER";
 $dsn .= ";user=$user;pass=$pass" if defined $user;
-ok my $dbh = DBI->connect($dsn);
+my $connected = REST::Neo4p->connect($TEST_SERVER, $user,$pass);
 
 SKIP : {
-  skip 'no connection to neo4j', $num_live_tests unless $dbh->ping;
+  skip 'no connection to neo4j', $num_live_tests unless $connected;
+  ok $dbh = DBI->connect($dsn);
   $t = Neo4p::Test->new($TEST_SERVER,$user,$pass);
   ok $t->create_sample, 'create sample graph';
   my $idx = ${$t->nix};
@@ -61,5 +62,5 @@ CYPHER
 done_testing;
 
 END {
-  $dbh->disconnect;
+  $dbh && $dbh->disconnect;
 }

@@ -25,6 +25,7 @@ my @relns = (
 sub new {
   my $class = shift;
   my ($db,$user,$pass) = @_;
+  REST::Neo4p->set_handle(0);
   unless (REST::Neo4p->connected) {
     eval {
       REST::Neo4p->agent->credentials($db,'',$user,$pass) if defined $user;
@@ -52,6 +53,7 @@ sub agent {REST::Neo4p->agent}
 
 sub create_sample {
   my $self = shift;
+  REST::Neo4p->set_handle(0);
   die "No connection"  unless REST::Neo4p->connected;
   my @node_objs;
   foreach (@nodes) {
@@ -71,13 +73,19 @@ sub create_sample {
 
 sub delete_sample {
   my $self = shift;
+  REST::Neo4p->set_handle(0);
   die "No connection"  unless REST::Neo4p->connected;
-  my @r = $self->rix->find_entries("hash:*");
-  my @n = $self->nix->find_entries("name:*");
-  $_->remove for @r, @n;
+  my $rm =<<RM;
+  MATCH (n)-[r]-() WHERE n.uuid ='$uuid' DELETE n, r
+RM
+  my $q=REST::Neo4p::Query->new($rm);
+  $q->execute;
+  # my @r = $self->rix->find_entries("hash:*");
+  # my @n = $self->nix->find_entries("name:*");
+  # $_->remove for @r, @n;
   $self->nix->remove;
   $self->rix->remove;
-  return 1;
+  return !$q->err;
 }
 
 sub DESTROY {

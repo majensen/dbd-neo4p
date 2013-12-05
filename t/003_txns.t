@@ -17,17 +17,17 @@ eval {
   $pass = $build->notes('pass');
 };
 my $TEST_SERVER = $build ? $build->notes('test_server') : 'http://127.0.0.1:7474';
-my $num_live_tests = 23;
-my $t;
+my $num_live_tests = 24;
+my ($t,$dbh);
 my $dsn = "dbi:Neo4p:db=$TEST_SERVER";
 $dsn .= ";user=$user;pass=$pass" if defined $user;
-ok my $dbh = DBI->connect($dsn);
-
+my $connected = REST::Neo4p->connect($TEST_SERVER, $user, $pass);
 SKIP : {
-  skip 'no connection to neo4j', $num_live_tests unless $dbh->ping;
+  skip 'no connection to neo4j', $num_live_tests unless $connected;
+  ok $dbh = DBI->connect($dsn);
   REST::Neo4p->set_handle($dbh->{neo_Handle});
   skip 'Need server v2.0 to test transactions', $num_live_tests unless REST::Neo4p->_check_version(2,0,0,2);
-  $t = Neo4p::Test->new();
+  $t = Neo4p::Test->new($TEST_SERVER,$user, $pass);
   ok $t->create_sample, 'create sample graph';
   my $idx = ${$t->nix};
   my $q =<<CYPHER;
@@ -44,6 +44,7 @@ CYPHER2
    START x = node:$idx(name='he')
    MATCH x-[r:pally]->u
    SET u.name = 'Screlb'
+   SET u.uuid = '925bd263_e369_4fc0_8e33_ea50d616358b'
    RETURN u
 CYPHER3
   my $find =<<FIND;
@@ -74,9 +75,8 @@ FIND
   ok $sthf->execute, 'look for created node';
   ok my $row = $sthf->fetch, 'found it';
   is $row->[0]->{name}, 'Screlb', 'node created and property set';
-  
 }
 
 END {
-  $dbh->disconnect;
+  $dbh && $dbh->disconnect;
 }
