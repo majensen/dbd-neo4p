@@ -658,8 +658,6 @@ L<REST::Neo4p::Node/as_simple()>,
 L<REST::Neo4p::Relationship/as_simple()>, and
 L<REST::Neo4p::Path/as_simple()>.
 
-=item 
-
 =back
 
 =head2 Statement Handle Attributes
