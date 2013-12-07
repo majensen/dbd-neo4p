@@ -527,7 +527,7 @@ DBD::Neo4p - A DBI driver for Neo4j via REST::Neo4p
 
 L<DBD::Neo4p> is a L<DBI>-compliant wrapper for L<REST::Neo4p::Query>
 that allows for the execution of Neo4j Cypher language queries against
-a L<Neo4j|www.neo4j.org> graph database.
+a L<Neo4j|http://neo4j.org> graph database.
 
 L<DBD::Neo4p> requires L<REST::Neo4p> v0.2220 or greater.
 

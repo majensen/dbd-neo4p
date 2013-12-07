@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 my $build = Module::Build->new(
-  'dist_name' => 'DBD::Neo4p',
+  'dist_name' => 'DBD-Neo4p',
   'dist_abstract' => 'DBI-compliant interface for Neo4j server',
   'dist_version_from' => 'lib/DBD/Neo4p.pm',
   'configure_requires' => {
