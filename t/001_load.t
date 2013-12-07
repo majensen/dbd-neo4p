@@ -18,7 +18,10 @@ my $num_live_tests = 6;
 
 my $dbh;
 my ($host,$port) = $TEST_SERVER =~ m|.*//([^:]+):([0-9]+)$|;
-my $connected = REST::Neo4p->connect($TEST_SERVER, $user, $pass);
+my $connected;
+eval {
+ $connected = REST::Neo4p->connect($TEST_SERVER, $user, $pass);
+};
 SKIP : {
   skip 'no connection to neo4j', $num_live_tests unless $connected;
   ok $dbh = DBI->connect("dbi:Neo4p:db=$TEST_SERVER"), 

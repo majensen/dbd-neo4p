@@ -21,12 +21,15 @@ my $num_live_tests = 24;
 my ($t,$dbh);
 my $dsn = "dbi:Neo4p:db=$TEST_SERVER";
 $dsn .= ";user=$user;pass=$pass" if defined $user;
-my $connected = REST::Neo4p->connect($TEST_SERVER, $user, $pass);
+my $connected;
+eval {
+  $connected = REST::Neo4p->connect($TEST_SERVER, $user, $pass);
+};
 SKIP : {
   skip 'no connection to neo4j', $num_live_tests unless $connected;
   ok $dbh = DBI->connect($dsn);
   REST::Neo4p->set_handle($dbh->{neo_Handle});
-  skip 'Need server v2.0 to test transactions', $num_live_tests unless REST::Neo4p->_check_version(2,0,0,2);
+  skip 'Need server v2.0 to test transactions', $num_live_tests-1 unless REST::Neo4p->_check_version(2,0,0,2);
   $t = Neo4p::Test->new($TEST_SERVER,$user, $pass);
   ok $t->create_sample, 'create sample graph';
   my $idx = ${$t->nix};
@@ -75,8 +78,13 @@ FIND
   ok $sthf->execute, 'look for created node';
   ok my $row = $sthf->fetch, 'found it';
   is $row->[0]->{name}, 'Screlb', 'node created and property set';
+  my ($r) = grep { $_->type eq 'pally'} ($t->nix->find_entries(name => 'he'))[0]->get_outgoing_relationships();
+  $t->nix->add_entry($r->end_node, name => 'Screlb') if $r;
+  $t->rix->add_entry($r, hash => '123') if $r;
+  
 }
 
 END {
+  $t && $t->delete_sample;
   $dbh && $dbh->disconnect;
 }

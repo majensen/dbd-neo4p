@@ -202,7 +202,7 @@ sub rollback ($) {
 
 sub ping {
   my $dbh = shift;
-  my $sth = $dbh->prepare('MATCH a RETURN str(1) LIMIT 1') or return 0;
+  my $sth = $dbh->prepare('START a=node(*) RETURN a LIMIT 1') or return 0;
   $sth->execute or return 0;
   $sth->finish;
   return 1;

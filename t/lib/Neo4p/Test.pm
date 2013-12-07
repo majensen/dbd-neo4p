@@ -31,7 +31,10 @@ sub new {
       REST::Neo4p->agent->credentials($db,'',$user,$pass) if defined $user;
       REST::Neo4p->connect($db);
     };
-    if (my $e = Exception::Class->caught) {
+    if (my $e = REST::Neo4p::CommException->caught) {
+      return
+    }
+    elsif ($e = Exception::Class->caught) {
       warn (ref $e ? ref($e).":".$e->message : $@);
       return;
     }
@@ -75,23 +78,18 @@ sub delete_sample {
   my $self = shift;
   REST::Neo4p->set_handle(0);
   die "No connection"  unless REST::Neo4p->connected;
-  my $rm =<<RM;
-  MATCH (n)-[r]-() WHERE n.uuid ='$uuid' DELETE n, r
-RM
-  my $q=REST::Neo4p::Query->new($rm);
-  $q->execute;
-  # my @r = $self->rix->find_entries("hash:*");
-  # my @n = $self->nix->find_entries("name:*");
-  # $_->remove for @r, @n;
-  $self->nix->remove;
-  $self->rix->remove;
-  return !$q->err;
+  my @r = $self->rix->find_entries("hash:*");
+  my @n = $self->nix->find_entries("name:*");
+  $_->remove for @r, @n;
+  return 1;
 }
 
 sub DESTROY {
   my $self = shift;
   eval {
     $self->delete_sample;
+    $self->nix->remove;
+    $self->rix->remove;
   };
 }
 1;

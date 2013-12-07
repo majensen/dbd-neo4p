@@ -21,7 +21,10 @@ my $num_live_tests = 1;
 my ($t, $dbh);
 my $dsn = "dbi:Neo4p:db=$TEST_SERVER";
 $dsn .= ";user=$user;pass=$pass" if defined $user;
-my $connected = REST::Neo4p->connect($TEST_SERVER, $user,$pass);
+my $connected;
+eval {
+  $connected = REST::Neo4p->connect($TEST_SERVER, $user,$pass);
+};
 
 SKIP : {
   skip 'no connection to neo4j', $num_live_tests unless $connected;
