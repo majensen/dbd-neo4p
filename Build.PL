@@ -21,6 +21,7 @@ my $build = Module::Build->new(
    },
   'requires' => {
     'REST::Neo4p' => '0.2220',
+    'DBI' => 0,
     'JSON' => 0
    },
   perl => 5.010
