@@ -1,5 +1,5 @@
-#$Id$
-use v5.10;
+#$Id: Neo4p.pm 312 2013-12-13 01:44:14Z maj $
+use v5.10.1;
 package DBD::Neo4p;
 use strict;
 use warnings;
@@ -9,7 +9,7 @@ require DBI;
 no warnings qw/once/;
 
 BEGIN {
- $DBD::Neo4p::VERSION = '0.0005';
+ $DBD::Neo4p::VERSION = '0.0006';
 }
 
 our $err = 0;               # holds error code   for DBI::err
@@ -258,6 +258,7 @@ sub disconnect ($) {
 
 sub FETCH ($$) {
   my ($dbh, $sAttr) = @_;
+  use experimental qw/smartmatch/;
   given ($sAttr) {
     when ('AutoCommit') { return $dbh->{$sAttr} }
     when (/^${prefix}_/) { return $dbh->{$sAttr} }
@@ -267,6 +268,7 @@ sub FETCH ($$) {
 
 sub STORE ($$$) {
   my ($dbh, $sAttr, $sValue) = @_;
+  use experimental qw/smartmatch/;
   given ($sAttr) {
     when ('AutoCommit') {
       local $REST::Neo4p::HANDLE = $dbh->{"${prefix}_Handle"};
@@ -395,6 +397,7 @@ sub fetchall_hashref {
   my $rows = $sth->fetchall_arrayref;
   my $ret = {};
   return unless $rows;
+  use experimental qw/smartmatch/;
   for my $row (@$rows) {
     my %data;
     @data{@names} = @$row;
@@ -444,6 +447,7 @@ sub finish ($) {
 sub FETCH ($$) {
   my ($sth, $attrib) = @_;
   my $q =$sth->{"${prefix}_query_obj"};
+  use experimental qw/smartmatch/;
   given ($attrib) {
     when ('NAME') { return ($q && $q->{NAME}) }
     when ('NUM_OF_FIELDS') { return ($q && $q->{NUM_OF_FIELDS}) }
@@ -477,6 +481,7 @@ sub FETCH ($$) {
 
 sub STORE ($$$) {
   my ($sth, $attrib, $value) = @_;
+  use experimental qw/smartmatch/;
   #1. Private driver attributes have neo_ prefix
   given ($attrib) {
     when (/^${prefix}_/) { 
