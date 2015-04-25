@@ -346,8 +346,9 @@ sub execute($@) {
   # method delegates this to the query object and $sth->{NUM_OF_FIELDS}
   # thereby returns the correct number, but $sth->_set_bav($row) segfaults
   # if I don't:
+  $sth->STORE(NAME => $q->{NAME});
   $sth->STORE(NUM_OF_FIELDS => 0);
-  $sth->STORE(NUM_OF_FIELDS => $q->{NUM_OF_FIELDS});
+  $sth->STORE(NUM_OF_FIELDS => $q ? $q->{NUM_OF_FIELDS} : undef);
 
   $sth->{Active} = 1;
   return $numrows || '0E0';
@@ -376,6 +377,8 @@ sub fetch ($) {
     $sth->STORE(Active => 0);
     return undef;
   }
+  $sth->STORE(NAME => $q->{NAME});
+  $sth->STORE(NUM_OF_FIELDS => $q->{NUM_OF_FIELDS});
   $sth->_set_fbav($row);
 }
 
@@ -450,8 +453,6 @@ sub FETCH ($$) {
   my $q =$sth->{"${prefix}_query_obj"};
   use experimental qw/smartmatch/;
   given ($attrib) {
-    when ('NAME') { return ($q && $q->{NAME}) }
-    when ('NUM_OF_FIELDS') { return ($q && $q->{NUM_OF_FIELDS}) }
     when ('TYPE') {
       return;
     }
@@ -485,7 +486,7 @@ sub STORE ($$$) {
   use experimental qw/smartmatch/;
   #1. Private driver attributes have neo_ prefix
   given ($attrib) {
-    when (/^${prefix}_/) { 
+    when (/^${prefix}_|(?:NAME$)/) { 
       $sth->{$attrib} = $value;
       return 1;
     }
