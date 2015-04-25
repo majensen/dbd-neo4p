@@ -23,6 +23,9 @@ my ($t,$dbh);
 my $dsn = "dbi:Neo4p:db=$TEST_SERVER";
 my $connected;
 eval {
+  if (REST::Neo4p->agent->isa('LWP::UserAgent')) {
+    REST::Neo4p->agent->ssl_opts(verify_hostname => 0);
+  }
   $connected = REST::Neo4p->connect($TEST_SERVER, $user, $pass);
 };
 SKIP : {
