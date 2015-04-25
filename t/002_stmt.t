@@ -16,6 +16,7 @@ eval {
   $build = Module::Build->current;
   $user = $build->notes('user');
   $pass = $build->notes('pass');
+  $ENV{REST_NEO4P_AGENT_MODULE} = $build->notes('backend');
 };
 my $TEST_SERVER = $build ? $build->notes('test_server') : 'http://127.0.0.1:7474';
 my $num_live_tests = 1;
