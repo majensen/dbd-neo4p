@@ -8,7 +8,7 @@ require DBI;
 no warnings qw/once/;
 
 BEGIN {
- $DBD::Neo4p::VERSION = '0.1000';
+ $DBD::Neo4p::VERSION = '0.1003';
 }
 
 our $err = 0;               # holds error code   for DBI::err
@@ -38,7 +38,8 @@ sub driver($$){
     return $drh;
 }
 
-package DBD::Neo4p::dr;
+package # hide from PAUSE
+  DBD::Neo4p::dr;
 $DBD::Neo4p::dr::imp_data_size = 0;
 
 sub connect($$;$$$) {
@@ -114,7 +115,8 @@ sub data_sources ($;$) {
 
 sub disconnect_all($) { }
 
-package DBD::Neo4p::db;
+package #hide from PAUSE
+  DBD::Neo4p::db;
 $DBD::Neo4p::db::imp_data_size = 0;
 
 sub prepare {
@@ -303,7 +305,8 @@ sub DESTROY($) {
   # deal with the REST::Neo4p object
 }
 
-package DBD::Neo4p::st;
+package #hide from PAUSE
+  DBD::Neo4p::st;
 $DBD::Neo4p::st::imp_data_size = 0;
 
 sub bind_param ($$$;$) {
