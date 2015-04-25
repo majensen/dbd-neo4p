@@ -13,19 +13,24 @@ my $build = Module::Build->new(
     'Module::Build' => 0
    },
   'build_requires' => {
-    'REST::Neo4p' => '0.2220',
+    'REST::Neo4p' => '0.3010',
     'Test::More' => 0,
     'Test::Exception' => 0,
     'Module::Build' => 0,
-    'DBI' => 0,
+    'DBI' => '1.632',
     'experimental' => 0
    },
   'requires' => {
-    'REST::Neo4p' => '0.2220',
-    'DBI' => 0,
+    'REST::Neo4p' => '0.3010',
+    'DBI' => '1.632',
     'JSON' => 0
    },
-  perl => 5.010
+  meta_merge => {
+    resources => {
+      repository  => 'http://github.com/majensen/dbd-neo4p.git',
+    }
+   },
+  perl => 5.0101
 );
 $build->notes( test_server => $build->prompt("Test server?", "http://127.0.0.1:7474"));
 $build->notes( user => $build->prompt("Username?", ""));

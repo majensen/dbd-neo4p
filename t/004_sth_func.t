@@ -1,5 +1,6 @@
 use Test::More tests => 24;
 use Test::Exception;
+use Module::Build;
 use lib 't/lib';
 use lib '../lib';
 use lib '../t/lib';
@@ -20,7 +21,6 @@ my $TEST_SERVER = $build ? $build->notes('test_server') : 'http://127.0.0.1:7474
 my $num_live_tests = 24;
 my ($t,$dbh);
 my $dsn = "dbi:Neo4p:db=$TEST_SERVER";
-$dsn .= ";user=$user;pass=$pass" if defined $user;
 my $connected;
 eval {
   $connected = REST::Neo4p->connect($TEST_SERVER,$user,$pass);
@@ -28,7 +28,7 @@ eval {
 
 SKIP : {
   skip 'no connection to neo4j', $num_live_tests unless $connected;
-  ok $dbh = DBI->connect($dsn);
+  ok $dbh = DBI->connect($dsn,$user,$pass);
   REST::Neo4p->set_handle($dbh->{neo_Handle});
   $t = Neo4p::Test->new($TEST_SERVER,$user,$pass);
   ok $t->create_sample, 'create sample graph';
@@ -68,7 +68,6 @@ FRIEND => 0, qw/TYPE(R)/ => 1 }, 'NAME_uc_hash';
   is ref $rows, 'HASH', 'is hashref';
   $dbh->{neo_ResponseAsObjects} = 1;
   ok $sth->execute, "execute statement (4) - responses as objects";
-  $DB::single=1;
   ok $rows =  $sth->fetchall_hashref(['friend','TYPE(r)']);
   1;
 }

@@ -1,4 +1,5 @@
 use Test::More tests => 13;
+use Module::Build;
 use lib 'lib';
 use lib 't/lib';
 use REST::Neo4p;

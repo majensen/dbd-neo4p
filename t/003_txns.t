@@ -1,5 +1,6 @@
 use Test::More tests => 24;
 use Test::Exception;
+use Module::Build;
 use lib 't/lib';
 use lib '../lib';
 use lib '../t/lib';
@@ -20,14 +21,13 @@ my $TEST_SERVER = $build ? $build->notes('test_server') : 'http://127.0.0.1:7474
 my $num_live_tests = 24;
 my ($t,$dbh);
 my $dsn = "dbi:Neo4p:db=$TEST_SERVER";
-$dsn .= ";user=$user;pass=$pass" if defined $user;
 my $connected;
 eval {
   $connected = REST::Neo4p->connect($TEST_SERVER, $user, $pass);
 };
 SKIP : {
   skip 'no connection to neo4j', $num_live_tests unless $connected;
-  ok $dbh = DBI->connect($dsn);
+  ok $dbh = DBI->connect($dsn,$user,$pass);
   REST::Neo4p->set_handle($dbh->{neo_Handle});
   skip 'Need server v2.0 to test transactions', $num_live_tests-1 unless REST::Neo4p->_check_version(2,0,0,2);
   $t = Neo4p::Test->new($TEST_SERVER,$user, $pass);
@@ -76,6 +76,7 @@ FIND
   ok $sthv->execute, 'execute query 3 (new txn)';
   ok $dbh->commit, 'now commit';
   ok $sthf->execute, 'look for created node';
+  #PROBLEM HERE vvv
   ok my $row = $sthf->fetch, 'found it';
   is $row->[0]->{name}, 'Screlb', 'node created and property set';
   my ($r) = grep { $_->type eq 'pally'} ($t->nix->find_entries(name => 'he'))[0]->get_outgoing_relationships();
