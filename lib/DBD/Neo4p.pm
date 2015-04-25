@@ -70,6 +70,13 @@ sub connect($$;$$$) {
     my $protocol = $dbh->FETCH("${prefix}_protocol") || 'http';
     my $user =  delete $rhAttr->{Username} || $sUsr;
     my $pass = delete $rhAttr->{Password} || $sAuth;
+    if (my $ssl_opts = delete $rhAttr->{SSL_OPTS}) {
+      if (REST::Neo4p->agent->isa('LWP::UserAgent')) {
+	while (my ($k,$v) = each %$ssl_opts) {
+	  REST::Neo4p->agent->ssl_opts($k => $v);
+	}
+      }
+    }
     # use db=<protocol>://<host>:<port> or host=<host>;port=<port>
     # db attribute trumps
 
