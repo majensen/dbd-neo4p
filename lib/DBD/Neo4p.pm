@@ -451,6 +451,8 @@ sub rows ($) {
 
 sub finish ($) {
   my ($sth) = @_;
+  $sth->{"${prefix}_query_obj"}->finish()
+    if (defined($sth->{"${prefix}_query_obj"}));
   $sth->{"${prefix}_query_obj"} = undef;
   $sth->STORE(Active => 0);
   $sth->SUPER::finish();
