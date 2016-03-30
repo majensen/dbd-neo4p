@@ -32,8 +32,8 @@ my $build = Module::Build->new(
    },
   perl => 5.0101
 );
-$build->notes( test_server => $build->prompt("Test server?", "http://127.0.0.1:7474"));
-$build->notes( user => $build->prompt("Username?", ""));
-$build->notes( pass => $build->prompt("Pass?",""));
-$build->notes( backend => $build->prompt("UserAgent module?","LWP::UserAgent"));
+$build->notes( test_server => $ENV{DBD_NEO4P_TEST_SERVER} //$build->prompt("Test server?", "http://127.0.0.1:7474"));
+$build->notes( user => $ENV{DBD_NEO4P_TEST_USER} //$build->prompt("Username?", ""));
+$build->notes( pass => $ENV{DBD_NEO4P_TEST_PASS} //$build->prompt("Pass?",""));
+$build->notes( backend => $ENV{DBD_NEO4P_AGENT} //$build->prompt("UserAgent module?","LWP::UserAgent"));
 $build->create_build_script;
