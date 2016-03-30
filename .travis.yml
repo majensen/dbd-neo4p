@@ -1,0 +1,41 @@
+
+language: perl
+perl:
+  - "5.22"
+  - "5.20"
+  - "5.18"
+
+env:
+  - NEO4J_VER=2.3.3
+  - NEO4J_VER=2.2.8  
+  - NEO4J_VER=2.1.8
+  - NEO4J_VER=2.0.4
+  - NEO4J_VER=1.9.5
+
+before_install:
+  # neo4j pkgs
+  - curl https://debian.neo4j.org/neotechnology.gpg.key | sudo apt-key add -
+  - echo 'deb http://debian.neo4j.org/repo stable/' | sudo tee -a /etc/apt/sources.list
+  - sudo apt-get update -qq
+  # perl pkgs
+  - cpanm Test::Pod Test::CPAN::Changes
+
+install:
+  - sudo apt-get install neo4j=$NEO4J_VER
+  # need to change pass on first access
+  - curl -u neo4j:neo4j -d '{"password":"j4oen"}' -X POST -H 'Accept:application/json' -H'Content-Type:application/json' http://localhost:7474/user/neo4j/password
+  
+#before_script:
+#  - sudo neo4j start
+
+script:
+  - export REST_NEO4P_TEST_SERVER=http://localhost:7474
+  - export REST_NEO4P_TEST_USER=neo4j
+  - export REST_NEO4P_TEST_PASS=j4oen
+  - perl Build.PL
+  - yes | ./Build installdeps --cpan_client 'cpanm -n'
+  - ./Build test
+  
+
+
+  
