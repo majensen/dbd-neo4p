@@ -40,7 +40,8 @@ SKIP : {
   my $q =<<OUTPUT;
    START x = node:$idx(name='I')
    MATCH path =(x-[r]-friend)
-   RETURN friend, TYPE(r)
+   RETURN friend, TYPE(r) 
+   ORDER BY r.hash
 OUTPUT
   my $q2 = <<INPUT;
    START x = node:$idx(name={Name})
