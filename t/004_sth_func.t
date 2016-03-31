@@ -59,7 +59,7 @@ INPUT
 FRIEND => 0, qw/TYPE(R)/ => 1 }, 'NAME_uc_hash';
   ok my $row = $sth->fetchrow_hashref, 'fetchrow_hashref';
   is $row->{friend}->{name}, 'you', 'fetched row as hash 1';
-  is $row->{'TYPE(r)'}, 'bosom', 'fetched row as hash 2';
+  is $row->{'TYPE(r)'}, 'best', 'fetched row as hash 2';
   ok my $rows = $sth->fetchall_arrayref, 'fetchall_arrayref';
   is ref $rows, 'ARRAY', 'is arrayref';
   cmp_ok scalar @$rows, ">=", 2, 'got >= 2 rows';
