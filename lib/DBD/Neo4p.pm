@@ -210,7 +210,7 @@ sub rollback ($) {
 
 sub ping {
   my $dbh = shift;
-  my $sth = $dbh->prepare('RETURN 1') or return 0;
+  my $sth = $dbh->prepare('MATCH () RETURN 1') or return 0;
   $sth->execute or return 0;
   $sth->finish;
   return 1;
