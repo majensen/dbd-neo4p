@@ -210,7 +210,9 @@ sub rollback ($) {
 
 sub ping {
   my $dbh = shift;
-  my $sth = $dbh->prepare('MATCH () RETURN 1') or return 0;
+  my $s = ($dbh->neo_neo4j_version =~ /^3.0/ ? 'match (a) return a limit 1'
+	     'return 1');
+  my $sth = $dbh->prepare($s) or return 0;
   $sth->execute or return 0;
   $sth->finish;
   return 1;
