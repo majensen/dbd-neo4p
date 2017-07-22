@@ -8,8 +8,9 @@ perl:
   - "5.18"
 
 env:
-  - NEO4J_VER=3.0.3
-  - NEO4J_VER=2.3.3
+  - NEO4J_VER=3.2.2
+  - NEO4J_VER=3.1.5
+  - NEO4J_VER=2.3.11
   - NEO4J_VER=2.2.8  
   - NEO4J_VER=2.1.8
   - NEO4J_VER=2.0.4
