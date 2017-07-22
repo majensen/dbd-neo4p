@@ -39,13 +39,13 @@ SKIP : {
   my $idx = ${$t->nix};
   my $q =<<OUTPUT;
    START x = node:$idx(name='I')
-   MATCH path =(x-[r]-friend)
+   MATCH path =(x)-[r]-(friend)
    RETURN friend, TYPE(r) 
    ORDER BY r.hash
 OUTPUT
   my $q2 = <<INPUT;
    START x = node:$idx(name={Name})
-   CREATE UNIQUE x-[:pally]->y {name:'Fred'}
+   CREATE UNIQUE (x)-[:pally]->(y {name:'Fred'})
 INPUT
   
   ok my $sth = $dbh->prepare($q), 'prepare statment';

@@ -28,6 +28,7 @@ my $build = Module::Build->new(
   meta_merge => {
     resources => {
       repository  => 'http://github.com/majensen/dbd-neo4p.git',
+      bugtracker =>  'http://github.com/majensen/dbd-neo4p.git/issues',
     }
    },
   perl => 5.0101
