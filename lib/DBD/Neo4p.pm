@@ -43,6 +43,7 @@ package # hide from PAUSE
 $DBD::Neo4p::dr::imp_data_size = 0;
 
 sub connect($$;$$$) {
+  $DB::single =1;
     my($drh, $sDbName, $sUsr, $sAuth, $rhAttr)= @_;
 
 #1. create database-handle
@@ -64,7 +65,7 @@ sub connect($$;$$$) {
       $key = "${prefix}_$key" unless $key =~ /^${prefix}_/;
       $dbh->STORE($key, $value);
     }
-    my $db = delete $rhAttr->{"${prefix}_database"} || delete $rhAttr->{"${prefix}_db"};
+  my $db = delete $rhAttr->{"${prefix}_database"} || delete $rhAttr->{"${prefix}_db"} || $dbh->{neo_db};
     my $host = $dbh->FETCH("${prefix}_host") || 'localhost';
     my $port = $dbh->FETCH("${prefix}_port") || 7474;
     my $protocol = $dbh->FETCH("${prefix}_protocol") || 'http';
@@ -89,7 +90,7 @@ sub connect($$;$$$) {
     # real connect...
 
     $db = "$protocol://$host:$port";
-    eval {
+  eval {
       REST::Neo4p->connect($db,$user,$pass);
     };
     if (my $e = Exception::Class->caught()) {
