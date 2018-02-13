@@ -43,7 +43,6 @@ package # hide from PAUSE
 $DBD::Neo4p::dr::imp_data_size = 0;
 
 sub connect($$;$$$) {
-  $DB::single =1;
     my($drh, $sDbName, $sUsr, $sAuth, $rhAttr)= @_;
 
 #1. create database-handle
