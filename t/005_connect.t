@@ -23,6 +23,7 @@ eval {
 };
 
 SKIP : {
+  no warnings qw/uninitialized/;
   skip 'no connection to neo4j', $num_live_tests unless $connected;
   my ($dbh1,$dbh2,$dbh3,$dbh4);
   
