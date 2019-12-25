@@ -1,4 +1,6 @@
 Revision history for Perl module DBD::Neo4p
+0.2001 2019-12-24
+    - support new style ($parm) cypher parameters
 0.2000 2019-12-24
     - connect() finally works for all examples
     - auto-disconnect on destroy / eliminate DBI warning

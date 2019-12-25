@@ -40,7 +40,7 @@
    "provides" : {
       "DBD::Neo4p" : {
          "file" : "lib/DBD/Neo4p.pm",
-         "version" : "0.2000"
+         "version" : "0.2001"
       }
    },
    "release_status" : "stable",
@@ -55,6 +55,6 @@
          "url" : "http://github.com/majensen/dbd-neo4p.git"
       }
    },
-   "version" : "0.2000",
+   "version" : "0.2001",
    "x_serialization_backend" : "JSON::PP version 2.27300_01"
 }
