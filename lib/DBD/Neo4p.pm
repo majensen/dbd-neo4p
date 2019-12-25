@@ -64,7 +64,6 @@ sub connect($$;$$$) {
       $key = "${prefix}_$key" unless $key =~ /^${prefix}_/;
       $dbh->STORE($key, $value);
     }
-    $DB::single=1;
   my $db = delete $rhAttr->{"${prefix}_database"} || delete $rhAttr->{"${prefix}_db"} || $dbh->{neo_db};
     my $host = $dbh->FETCH("${prefix}_host") || 'localhost';
     my $port = $dbh->FETCH("${prefix}_port") || 7474;
@@ -128,7 +127,8 @@ sub prepare {
 
 # cypher query parameters are given as tokens surrounded by curly braces:
 # crude count:
-    my @parms = $sStmt =~ /\{\s*([^}[:space:]]*)\s*\}/g;
+    my @parms = $sStmt =~ m/(?:{\s*([^}:[:space:]]*)\s*})|(?:[\$]([[:alnum:]_]+))/g;
+    @parms = map { $_ ? $_ : () } @parms; # squish undefs
     $sth->STORE('NUM_OF_PARAMS', scalar @parms);
     $sth->{"${prefix}_param_names"} = \@parms;
     $sth->{"${prefix}_param_values"} = [];
